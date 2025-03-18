@@ -2,6 +2,7 @@
 #define FLAG_H
 
 enum FlagType {
+  INT,
   LONG,
   STRING,
   BOOL,
@@ -27,6 +28,9 @@ void flag_append(Flags *flags, Flag *flag);
 void flag_parse(Flags *flags, int argc, char *argv[]);
 void flag_print(Flags *flags);
 
+#define flag_int(int_ptr, name_long, name_short, default_value, description) \
+  { INT, int_ptr, 0, name_long, name_short, (void*)default_value, description }
+
 #define flag_long(long_ptr, name_long, name_short, default_value, description) \
   { LONG, long_ptr, 0, name_long, name_short, (void*)default_value, description }
 
@@ -38,9 +42,12 @@ void flag_print(Flags *flags);
 
 #ifdef FLAG_IMPL
 
+#include <errno.h>
+#include <inttypes.h>
+#include <limits.h>
 #include <stdbool.h>
-#include <stdlib.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 void flag_append(Flags *flags, Flag *flag) {
@@ -62,6 +69,15 @@ void flag_parse(Flags *flags, int argc, char *argv[]) {
     }
     if (flag->default_value != NULL) {
       switch (flag->type) {
+        case INT: {
+          int *ptr = (int*)flag->ptr;
+          long default_value = (long)flag->default_value;
+          if (default_value < INT_MIN || default_value > INT_MAX) {
+            fprintf(stderr, "integer out of range: %ld\n", default_value);
+            exit(1);
+          }
+          *ptr = default_value;
+        } break;
         case LONG: {
           long *ptr = (long*)flag->ptr;
           long default_value = (long)flag->default_value;
@@ -97,13 +113,43 @@ void flag_parse(Flags *flags, int argc, char *argv[]) {
       }
       if (strcmp(arg, flag->name_long) == 0 || strcmp(arg, flag->name_short) == 0) {
         switch (flag->type) {
+          case INT:
+            if((i + 1) < argc) {
+              i++;
+              char *val = argv[i];
+              char *endptr = NULL;
+              long l = strtol(val, &endptr, 10);
+              if (errno == EINVAL || !(strcmp(endptr, "") == 0)) {
+                fprintf(stderr, "%s: invalid argument\n", val);
+                exit(1);
+              }
+              if (errno == ERANGE || l < INT_MIN || l > INT_MAX) {
+                fprintf(stderr, "integer out of range: %s\n", val);
+                exit(1);
+              }
+              int *ptr = (int*)flag->ptr;
+              *ptr = (int)l;
+            } else {
+              fprintf(stderr, "missing value after flag: %s\n", arg);
+              exit(1);
+            }
+            break;
           case LONG:
             if((i + 1) < argc) {
               i++;
               char *val = argv[i];
-              long l = atol(val);
+              char *endptr = NULL;
+              long long ll = strtoll(val, &endptr, 10);
+              if (errno == EINVAL || !(strcmp(endptr, "") == 0)) {
+                fprintf(stderr, "%s: invalid argument\n", val);
+                exit(1);
+              }
+              if (errno == ERANGE || ll < LONG_MIN || ll > LONG_MAX) {
+                fprintf(stderr, "long out of range: %s\n", val);
+                exit(1);
+              }
               long *ptr = (long*)flag->ptr;
-              *ptr = l;
+              *ptr = (long)ll;
             } else {
               fprintf(stderr, "missing value after flag: %s\n", arg);
               exit(1);
@@ -152,6 +198,7 @@ void flag_print(Flags *flags) {
     if (flag->default_value != NULL) {
       printf(" (default: ");
       switch(flag->type) {
+        case INT:
         case LONG:
           printf("%ld", (long)flag->default_value);
           break;

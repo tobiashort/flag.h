@@ -23,6 +23,8 @@ int main() {
   cmd_append(&test_run, "./flag_test", NULL);
   cmd_append(&test_run, "-l", "66", NULL);
   cmd_append(&test_run, "--string", "Hello World", NULL);
+  cmd_append(&test_run, "--bool", NULL);
+  cmd_append(&test_run, "-i", "33", NULL);
   status = cmd_run(&test_run);
   check_status(status);
 
