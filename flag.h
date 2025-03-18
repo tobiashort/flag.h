@@ -3,7 +3,8 @@
 
 enum FlagType {
   LONG,
-  STRING
+  STRING,
+  BOOL,
 };
 
 typedef struct Flag {
@@ -32,8 +33,12 @@ void flag_print(Flags *flags);
 #define flag_string(char_ptr, len, name_long, name_short, default_value, description) \
   { STRING, char_ptr, len, name_long, name_short, (void*)default_value, description }
 
+#define flag_bool(bool_ptr, name_long, name_short, description) \
+  { BOOL, bool_ptr, 0, name_long, name_short, (void*)false, description }
+
 #ifdef FLAG_IMPL
 
+#include <stdbool.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -70,6 +75,11 @@ void flag_parse(Flags *flags, int argc, char *argv[]) {
             fprintf(stderr, "default_value: %s: too long\n", default_value);
             exit(1);
           }
+        } break;
+        case BOOL: {
+          bool *ptr = (bool*)flag->ptr;
+          bool default_value = (bool)flag->default_value;
+          *ptr = default_value;
         } break;
         default:
           fprintf(stderr, "unhandled flag type: %d\n", flag->type);
@@ -113,6 +123,10 @@ void flag_parse(Flags *flags, int argc, char *argv[]) {
               exit(1);
             }
             break;
+          case BOOL: {
+            bool *ptr = (bool*)flag->ptr;
+            *ptr = true;
+          } break;
           default:
             fprintf(stderr, "unhandled flag type: %d\n", flag->type);
             exit(1);
@@ -150,7 +164,9 @@ void flag_print(Flags *flags) {
       }
       printf(")");
     }
-    if (flag->type == STRING) {
+    if (flag -> type == BOOL) {
+      printf(" (default: false)");
+    } else if (flag->type == STRING) {
       printf(" (max length: %d)", flag->len);
     }
     printf("\n");
